@@ -7,14 +7,8 @@ import {PoolIdLibrary, PoolId} from "v4-core/types/PoolId.sol";
 import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
 import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {SwapParams} from "v4-core/types/PoolOperation.sol";
-import {
-    BeforeSwapDelta,
-    toBeforeSwapDelta
-} from "v4-core/types/BeforeSwapDelta.sol";
-import {
-    BalanceDelta,
-    BalanceDeltaLibrary
-} from "v4-core/types/BalanceDelta.sol";
+import {BeforeSwapDelta, toBeforeSwapDelta} from "v4-core/types/BeforeSwapDelta.sol";
+import {BalanceDelta, BalanceDeltaLibrary} from "v4-core/types/BalanceDelta.sol";
 import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 
 contract MEVTaxHook is BaseHook {
@@ -52,57 +46,45 @@ contract MEVTaxHook is BaseHook {
     constructor(IPoolManager _manager) BaseHook(_manager) {}
 
     /* -------------------- Permissions -------------------- */
-    function getHookPermissions()
-        public
-        pure
-        override
-        returns (Hooks.Permissions memory)
-    {
-        return
-            Hooks.Permissions({
-                beforeInitialize: false,
-                afterInitialize: true,
-                beforeAddLiquidity: false,
-                beforeRemoveLiquidity: false,
-                afterAddLiquidity: false,
-                afterRemoveLiquidity: false,
-                beforeSwap: true,
-                afterSwap: true,
-                beforeDonate: false,
-                afterDonate: false,
-                beforeSwapReturnDelta: false,
-                afterSwapReturnDelta: false,
-                afterAddLiquidityReturnDelta: false,
-                afterRemoveLiquidityReturnDelta: false
-            });
+    function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
+        return Hooks.Permissions({
+            beforeInitialize: false,
+            afterInitialize: true,
+            beforeAddLiquidity: false,
+            beforeRemoveLiquidity: false,
+            afterAddLiquidity: false,
+            afterRemoveLiquidity: false,
+            beforeSwap: true,
+            afterSwap: true,
+            beforeDonate: false,
+            afterDonate: false,
+            beforeSwapReturnDelta: false,
+            afterSwapReturnDelta: false,
+            afterAddLiquidityReturnDelta: false,
+            afterRemoveLiquidityReturnDelta: false
+        });
     }
 
     /* -------------------- Initialize -------------------- */
-    function _afterInitialize(
-        address,
-        PoolKey calldata key,
-        uint160 sqrtPriceX96,
-        int24
-    ) internal override returns (bytes4) {
+    function _afterInitialize(address, PoolKey calldata key, uint160 sqrtPriceX96, int24)
+        internal
+        override
+        returns (bytes4)
+    {
         PoolId id = key.toId();
 
-        poolState[id] = PoolState({
-            lastPrice: sqrtPriceX96,
-            emaVol: 0,
-            netFlow: 0,
-            lastBlock: block.number
-        });
+        poolState[id] = PoolState({lastPrice: sqrtPriceX96, emaVol: 0, netFlow: 0, lastBlock: block.number});
 
         return this.afterInitialize.selector;
     }
 
     /* -------------------- Before Swap -------------------- */
-    function _beforeSwap(
-        address,
-        PoolKey calldata key,
-        SwapParams calldata params,
-        bytes calldata
-    ) internal view override returns (bytes4, BeforeSwapDelta, uint24) {
+    function _beforeSwap(address, PoolKey calldata key, SwapParams calldata params, bytes calldata)
+        internal
+        view
+        override
+        returns (bytes4, BeforeSwapDelta, uint24)
+    {
         PoolState storage s = poolState[key.toId()];
         uint24 fee = BASE_FEE;
 
@@ -115,9 +97,8 @@ contract MEVTaxHook is BaseHook {
 
         // Pattern #2 — backrun / imbalance fee
         // zeroForOne swaps produce negative flow, !zeroForOne produce positive flow
-        bool sameDirection = (params.zeroForOne &&
-            s.netFlow < -FLOW_THRESHOLD) ||
-            (!params.zeroForOne && s.netFlow > FLOW_THRESHOLD);
+        bool sameDirection =
+            (params.zeroForOne && s.netFlow < -FLOW_THRESHOLD) || (!params.zeroForOne && s.netFlow > FLOW_THRESHOLD);
 
         // forge-lint: disable-next-line(unsafe-typecast)
         if (!sameDirection && _abs(s.netFlow) > uint256(FLOW_THRESHOLD)) {
@@ -133,23 +114,19 @@ contract MEVTaxHook is BaseHook {
     }
 
     /* -------------------- After Swap -------------------- */
-    function _afterSwap(
-        address,
-        PoolKey calldata key,
-        SwapParams calldata params,
-        BalanceDelta delta,
-        bytes calldata
-    ) internal override returns (bytes4, int128) {
+    function _afterSwap(address, PoolKey calldata key, SwapParams calldata params, BalanceDelta delta, bytes calldata)
+        internal
+        override
+        returns (bytes4, int128)
+    {
         PoolState storage s = poolState[key.toId()];
 
-        (uint160 sqrtPriceX96, , , ) = poolManager.getSlot0(key.toId());
+        (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(key.toId());
         uint256 priceAfter = uint256(sqrtPriceX96);
 
         // Update volatility EMA
         uint256 priceDelta = _bpsDiff(priceAfter, s.lastPrice);
-        s.emaVol =
-            ((s.emaVol * (100 - EMA_ALPHA)) + (priceDelta * EMA_ALPHA)) /
-            100;
+        s.emaVol = ((s.emaVol * (100 - EMA_ALPHA)) + (priceDelta * EMA_ALPHA)) / 100;
 
         // Decay flow per block (before adding new flow)
         if (s.lastBlock != block.number) {
@@ -180,17 +157,10 @@ contract MEVTaxHook is BaseHook {
         return uint256(x >= 0 ? x : -x);
     }
 
-    function _estimateImpact(
-        SwapParams calldata params,
-        uint128 liquidity
-    ) internal pure returns (uint256) {
+    function _estimateImpact(SwapParams calldata params, uint128 liquidity) internal pure returns (uint256) {
         if (liquidity == 0) return 0;
 
-        uint256 size = uint256(
-            params.amountSpecified > 0
-                ? params.amountSpecified
-                : -params.amountSpecified
-        );
+        uint256 size = uint256(params.amountSpecified > 0 ? params.amountSpecified : -params.amountSpecified);
         return (size * 10_000) / uint256(liquidity);
     }
 }
