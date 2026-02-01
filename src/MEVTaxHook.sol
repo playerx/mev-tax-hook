@@ -142,7 +142,7 @@ contract MEVTaxHook is BaseHook {
     ) internal override returns (bytes4, int128) {
         PoolState storage s = poolState[key.toId()];
 
-        (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(key.toId());
+        (uint160 sqrtPriceX96, , , ) = poolManager.getSlot0(key.toId());
         uint256 priceAfter = uint256(sqrtPriceX96);
 
         // Update volatility EMA
@@ -172,6 +172,7 @@ contract MEVTaxHook is BaseHook {
     /* -------------------- Helpers -------------------- */
 
     function _bpsDiff(uint256 a, uint256 b) internal pure returns (uint256) {
+        if (b == 0) return 0; // Avoid division by zero
         if (a > b) return ((a - b) * 10_000) / b;
         return ((b - a) * 10_000) / b;
     }
@@ -185,6 +186,7 @@ contract MEVTaxHook is BaseHook {
         uint128 liquidity
     ) internal pure returns (uint256) {
         if (liquidity == 0) return 0;
+
         uint256 size = uint256(
             params.amountSpecified > 0
                 ? params.amountSpecified
