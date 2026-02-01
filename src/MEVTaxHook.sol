@@ -15,9 +15,11 @@ import {
     BalanceDelta,
     BalanceDeltaLibrary
 } from "v4-core/types/BalanceDelta.sol";
+import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 
 contract MEVTaxHook is BaseHook {
     using PoolIdLibrary for PoolKey;
+    using StateLibrary for IPoolManager;
 
     /* -------------------- State -------------------- */
     struct PoolState {
@@ -105,15 +107,17 @@ contract MEVTaxHook is BaseHook {
         uint24 fee = BASE_FEE;
 
         // Pattern #1 — impact-based fee
-        uint256 impact = _estimateImpact(params, s.lastPrice);
+        uint128 liquidity = poolManager.getLiquidity(key.toId());
+        uint256 impact = _estimateImpact(params, liquidity);
         if (impact > IMPACT_THRESHOLD) {
             fee += IMPACT_FEE;
         }
 
         // Pattern #2 — backrun / imbalance fee
+        // zeroForOne swaps produce negative flow, !zeroForOne produce positive flow
         bool sameDirection = (params.zeroForOne &&
-            s.netFlow > FLOW_THRESHOLD) ||
-            (!params.zeroForOne && s.netFlow < -FLOW_THRESHOLD);
+            s.netFlow < -FLOW_THRESHOLD) ||
+            (!params.zeroForOne && s.netFlow > FLOW_THRESHOLD);
 
         // forge-lint: disable-next-line(unsafe-typecast)
         if (!sameDirection && _abs(s.netFlow) > uint256(FLOW_THRESHOLD)) {
@@ -138,10 +142,8 @@ contract MEVTaxHook is BaseHook {
     ) internal override returns (bytes4, int128) {
         PoolState storage s = poolState[key.toId()];
 
-        uint256 priceAfter = 0;
-        // uint256(
-        //     manager.getSlot0(PoolId.unwrap(key.toId())).sqrtPriceX96
-        // );
+        (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(key.toId());
+        uint256 priceAfter = uint256(sqrtPriceX96);
 
         // Update volatility EMA
         uint256 priceDelta = _bpsDiff(priceAfter, s.lastPrice);
@@ -149,18 +151,18 @@ contract MEVTaxHook is BaseHook {
             ((s.emaVol * (100 - EMA_ALPHA)) + (priceDelta * EMA_ALPHA)) /
             100;
 
+        // Decay flow per block (before adding new flow)
+        if (s.lastBlock != block.number) {
+            s.netFlow /= 2;
+            s.lastBlock = block.number;
+        }
+
         // Update directional flow
         int256 flow = params.zeroForOne
             ? -int256(BalanceDeltaLibrary.amount0(delta))
             : int256(BalanceDeltaLibrary.amount1(delta));
 
         s.netFlow += flow;
-
-        // Decay flow per block
-        if (s.lastBlock != block.number) {
-            s.netFlow /= 2;
-            s.lastBlock = block.number;
-        }
 
         s.lastPrice = priceAfter;
 
@@ -180,13 +182,14 @@ contract MEVTaxHook is BaseHook {
 
     function _estimateImpact(
         SwapParams calldata params,
-        uint256 price
+        uint128 liquidity
     ) internal pure returns (uint256) {
+        if (liquidity == 0) return 0;
         uint256 size = uint256(
             params.amountSpecified > 0
                 ? params.amountSpecified
                 : -params.amountSpecified
         );
-        return (size * 10_000) / price;
+        return (size * 10_000) / uint256(liquidity);
     }
 }
