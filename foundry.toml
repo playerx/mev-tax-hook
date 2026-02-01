@@ -3,6 +3,15 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
+solc_version = '0.8.26'
+evm_version = "cancun"
+optimizer_runs = 800
+via_ir = false
+ffi = true
+
+[fmt]
+bracket_spacing = true
+
 [etherscan]
 mainnet = { key = "${ETHERSCAN_API_KEY}", chain = 1 }
 sepolia = { key = "${ETHERSCAN_API_KEY}", chain = 11155111 }

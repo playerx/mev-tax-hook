@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
-import {PoolKey} from "v4-core/types/PoolKey.sol";
-import {PoolIdLibrary, PoolId} from "v4-core/types/PoolId.sol";
-import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
-import {Hooks} from "v4-core/libraries/Hooks.sol";
-import {SwapParams} from "v4-core/types/PoolOperation.sol";
-import {BeforeSwapDelta, toBeforeSwapDelta} from "v4-core/types/BeforeSwapDelta.sol";
-import {BalanceDelta, BalanceDeltaLibrary} from "v4-core/types/BalanceDelta.sol";
-import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
+import { BaseHook } from "v4-periphery/src/utils/BaseHook.sol";
+import { PoolKey } from "v4-core/types/PoolKey.sol";
+import { PoolIdLibrary, PoolId } from "v4-core/types/PoolId.sol";
+import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
+import { Hooks } from "v4-core/libraries/Hooks.sol";
+import { SwapParams } from "v4-core/types/PoolOperation.sol";
+import { BeforeSwapDelta, toBeforeSwapDelta } from "v4-core/types/BeforeSwapDelta.sol";
+import { BalanceDelta, BalanceDeltaLibrary } from "v4-core/types/BalanceDelta.sol";
+import { StateLibrary } from "v4-core/libraries/StateLibrary.sol";
 
 contract MEVTaxHook is BaseHook {
     using PoolIdLibrary for PoolKey;
@@ -43,7 +43,7 @@ contract MEVTaxHook is BaseHook {
     uint256 public constant EMA_ALPHA = 20; // %
 
     /* -------------------- Constructor -------------------- */
-    constructor(IPoolManager _manager) BaseHook(_manager) {}
+    constructor(IPoolManager _manager) BaseHook(_manager) { }
 
     /* -------------------- Permissions -------------------- */
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
@@ -73,7 +73,7 @@ contract MEVTaxHook is BaseHook {
     {
         PoolId id = key.toId();
 
-        poolState[id] = PoolState({lastPrice: sqrtPriceX96, emaVol: 0, netFlow: 0, lastBlock: block.number});
+        poolState[id] = PoolState({ lastPrice: sqrtPriceX96, emaVol: 0, netFlow: 0, lastBlock: block.number });
 
         return this.afterInitialize.selector;
     }

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Script, console} from "forge-std/Script.sol";
-import {Hooks} from "v4-core/libraries/Hooks.sol";
-import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
-import {HookMiner} from "v4-periphery/src/utils/HookMiner.sol";
+import { Script, console } from "forge-std/Script.sol";
+import { Hooks } from "v4-core/libraries/Hooks.sol";
+import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
+import { HookMiner } from "v4-periphery/src/utils/HookMiner.sol";
 
-import {MEVTaxHook} from "../src/MEVTaxHook.sol";
+import { MEVTaxHook } from "../src/MEVTaxHook.sol";
 
 /// @notice Mines the address and deploys the MEVTaxHook contract
 /// @dev Load config from .env file: `source .env && forge script script/MEVTaxHook.s.sol`
@@ -44,7 +44,7 @@ contract DeployMEVTaxHook is Script {
 
         // Deploy the hook using CREATE2
         vm.startBroadcast(deployerPrivateKey);
-        MEVTaxHook hook = new MEVTaxHook{salt: salt}(IPoolManager(poolManager));
+        MEVTaxHook hook = new MEVTaxHook{ salt: salt }(IPoolManager(poolManager));
         vm.stopBroadcast();
 
         require(address(hook) == hookAddress, "DeployMEVTaxHook: hook address mismatch");
