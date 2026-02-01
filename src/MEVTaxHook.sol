@@ -26,7 +26,7 @@ contract MEVTaxHook is BaseHook {
     mapping(PoolId => PoolState) public poolState;
 
     /* -------------------- Parameters -------------------- */
-    uint24 public constant BASE_FEE = 3000; // 0.30%
+    // uint24 public constant BASE_FEE = 3000; // 0.30%
 
     // Pattern #1: impact
     uint256 public constant IMPACT_THRESHOLD = 80; // 0.80%
@@ -86,7 +86,7 @@ contract MEVTaxHook is BaseHook {
         returns (bytes4, BeforeSwapDelta, uint24)
     {
         PoolState storage s = poolState[key.toId()];
-        uint24 fee = BASE_FEE;
+        uint24 fee = key.fee;
 
         // Pattern #1 — impact-based fee
         uint128 liquidity = poolManager.getLiquidity(key.toId());
