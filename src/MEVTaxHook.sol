@@ -170,7 +170,6 @@ contract MEVTaxHook is BaseHook {
     }
 
     /* -------------------- Helpers -------------------- */
-
     function _bpsDiff(uint256 a, uint256 b) internal pure returns (uint256) {
         if (b == 0) return 0; // Avoid division by zero
         if (a > b) return ((a - b) * 10_000) / b;
