@@ -16,11 +16,10 @@ import {
     BalanceDeltaLibrary
 } from "v4-core/types/BalanceDelta.sol";
 
-contract UnifiedMEVHook is BaseHook {
+contract MEVTaxHook is BaseHook {
     using PoolIdLibrary for PoolKey;
 
     /* -------------------- State -------------------- */
-
     struct PoolState {
         uint256 lastPrice; // sqrtPriceX96
         uint256 emaVol; // volatility EMA (bps)
@@ -31,7 +30,6 @@ contract UnifiedMEVHook is BaseHook {
     mapping(PoolId => PoolState) public poolState;
 
     /* -------------------- Parameters -------------------- */
-
     uint24 public constant BASE_FEE = 3000; // 0.30%
 
     // Pattern #1: impact
