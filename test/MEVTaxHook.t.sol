@@ -332,10 +332,7 @@ contract MEVTaxHookTest is Test, Deployers {
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-                    HELPER FUNCTION UNIT TESTS
-//////////////////////////////////////////////////////////////*/
-
+// HELPER FUNCTION UNIT TESTS
 contract MEVTaxHookHelpersTest is Test {
     // Test internal helper functions via a harness
 
