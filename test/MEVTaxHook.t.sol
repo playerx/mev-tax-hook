@@ -1,27 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol";
-import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
-import {PoolKey} from "v4-core/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
-import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
-import {IHooks} from "v4-core/interfaces/IHooks.sol";
-import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
-import {Hooks} from "v4-core/libraries/Hooks.sol";
-import {TickMath} from "v4-core/libraries/TickMath.sol";
-import {LPFeeLibrary} from "v4-core/libraries/LPFeeLibrary.sol";
-import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
-import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
-import {
-    SwapParams,
-    ModifyLiquidityParams
-} from "v4-core/types/PoolOperation.sol";
-import {PoolSwapTest} from "v4-core/test/PoolSwapTest.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { Deployers } from "@uniswap/v4-core/test/utils/Deployers.sol";
+import { MockERC20 } from "solmate/src/test/utils/mocks/MockERC20.sol";
+import { PoolKey } from "v4-core/types/PoolKey.sol";
+import { PoolId, PoolIdLibrary } from "v4-core/types/PoolId.sol";
+import { Currency, CurrencyLibrary } from "v4-core/types/Currency.sol";
+import { IHooks } from "v4-core/interfaces/IHooks.sol";
+import { IPoolManager } from "v4-core/interfaces/IPoolManager.sol";
+import { Hooks } from "v4-core/libraries/Hooks.sol";
+import { TickMath } from "v4-core/libraries/TickMath.sol";
+import { LPFeeLibrary } from "v4-core/libraries/LPFeeLibrary.sol";
+import { StateLibrary } from "v4-core/libraries/StateLibrary.sol";
+import { BalanceDelta } from "v4-core/types/BalanceDelta.sol";
+import { SwapParams, ModifyLiquidityParams } from "v4-core/types/PoolOperation.sol";
+import { PoolSwapTest } from "v4-core/test/PoolSwapTest.sol";
 
-import {MEVTaxHook} from "../src/MEVTaxHook.sol";
-import {HookMiner} from "v4-periphery/src/utils/HookMiner.sol";
+import { MEVTaxHook } from "../src/MEVTaxHook.sol";
+import { HookMiner } from "v4-periphery/src/utils/HookMiner.sol";
 
 contract MEVTaxHookTest is Test, Deployers {
     using PoolIdLibrary for PoolKey;
@@ -32,25 +29,16 @@ contract MEVTaxHookTest is Test, Deployers {
     PoolKey poolKey;
     PoolId poolId;
 
-    uint160 constant HOOK_FLAGS =
-        uint160(
-            Hooks.AFTER_INITIALIZE_FLAG |
-                Hooks.BEFORE_SWAP_FLAG |
-                Hooks.AFTER_SWAP_FLAG
-        );
+    uint160 constant HOOK_FLAGS = uint160(Hooks.AFTER_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG);
 
     function setUp() public {
         deployFreshManagerAndRouters();
         deployMintAndApprove2Currencies();
 
         // Deploy hook to proper address with correct flags
-        (address hookAddress, bytes32 salt) = HookMiner.find(
-            address(this),
-            HOOK_FLAGS,
-            type(MEVTaxHook).creationCode,
-            abi.encode(manager)
-        );
-        hook = new MEVTaxHook{salt: salt}(manager);
+        (address hookAddress, bytes32 salt) =
+            HookMiner.find(address(this), HOOK_FLAGS, type(MEVTaxHook).creationCode, abi.encode(manager));
+        hook = new MEVTaxHook{ salt: salt }(manager);
         require(address(hook) == hookAddress, "Hook address mismatch");
 
         // Create pool with dynamic fee
@@ -69,12 +57,7 @@ contract MEVTaxHookTest is Test, Deployers {
         // Add substantial liquidity for testing
         modifyLiquidityRouter.modifyLiquidity(
             poolKey,
-            ModifyLiquidityParams({
-                tickLower: -6000,
-                tickUpper: 6000,
-                liquidityDelta: 1000e18,
-                salt: bytes32(0)
-            }),
+            ModifyLiquidityParams({ tickLower: -6000, tickUpper: 6000, liquidityDelta: 1000e18, salt: bytes32(0) }),
             ZERO_BYTES
         );
     }
@@ -83,66 +66,27 @@ contract MEVTaxHookTest is Test, Deployers {
     function test_hookPermissions() public view {
         Hooks.Permissions memory permissions = hook.getHookPermissions();
 
-        assertFalse(
-            permissions.beforeInitialize,
-            "beforeInitialize should be false"
-        );
-        assertTrue(
-            permissions.afterInitialize,
-            "afterInitialize should be true"
-        );
-        assertFalse(
-            permissions.beforeAddLiquidity,
-            "beforeAddLiquidity should be false"
-        );
-        assertFalse(
-            permissions.beforeRemoveLiquidity,
-            "beforeRemoveLiquidity should be false"
-        );
-        assertFalse(
-            permissions.afterAddLiquidity,
-            "afterAddLiquidity should be false"
-        );
-        assertFalse(
-            permissions.afterRemoveLiquidity,
-            "afterRemoveLiquidity should be false"
-        );
+        assertFalse(permissions.beforeInitialize, "beforeInitialize should be false");
+        assertTrue(permissions.afterInitialize, "afterInitialize should be true");
+        assertFalse(permissions.beforeAddLiquidity, "beforeAddLiquidity should be false");
+        assertFalse(permissions.beforeRemoveLiquidity, "beforeRemoveLiquidity should be false");
+        assertFalse(permissions.afterAddLiquidity, "afterAddLiquidity should be false");
+        assertFalse(permissions.afterRemoveLiquidity, "afterRemoveLiquidity should be false");
         assertTrue(permissions.beforeSwap, "beforeSwap should be true");
         assertTrue(permissions.afterSwap, "afterSwap should be true");
         assertFalse(permissions.beforeDonate, "beforeDonate should be false");
         assertFalse(permissions.afterDonate, "afterDonate should be false");
-        assertFalse(
-            permissions.beforeSwapReturnDelta,
-            "beforeSwapReturnDelta should be false"
-        );
-        assertFalse(
-            permissions.afterSwapReturnDelta,
-            "afterSwapReturnDelta should be false"
-        );
-        assertFalse(
-            permissions.afterAddLiquidityReturnDelta,
-            "afterAddLiquidityReturnDelta should be false"
-        );
-        assertFalse(
-            permissions.afterRemoveLiquidityReturnDelta,
-            "afterRemoveLiquidityReturnDelta should be false"
-        );
+        assertFalse(permissions.beforeSwapReturnDelta, "beforeSwapReturnDelta should be false");
+        assertFalse(permissions.afterSwapReturnDelta, "afterSwapReturnDelta should be false");
+        assertFalse(permissions.afterAddLiquidityReturnDelta, "afterAddLiquidityReturnDelta should be false");
+        assertFalse(permissions.afterRemoveLiquidityReturnDelta, "afterRemoveLiquidityReturnDelta should be false");
     }
 
     // AFTER INITIALIZE
     function test_afterInitialize_setsPoolState() public view {
-        (
-            uint256 lastPrice,
-            uint256 emaVol,
-            int256 netFlow,
-            uint256 lastBlock
-        ) = hook.poolState(poolId);
+        (uint256 lastPrice, uint256 emaVol, int256 netFlow, uint256 lastBlock) = hook.poolState(poolId);
 
-        assertEq(
-            lastPrice,
-            SQRT_PRICE_1_1,
-            "lastPrice should be initialized to sqrtPriceX96"
-        );
+        assertEq(lastPrice, SQRT_PRICE_1_1, "lastPrice should be initialized to sqrtPriceX96");
         assertEq(emaVol, 0, "emaVol should be 0 initially");
         assertEq(netFlow, 0, "netFlow should be 0 initially");
         assertEq(lastBlock, block.number, "lastBlock should be current block");
@@ -158,10 +102,7 @@ contract MEVTaxHookTest is Test, Deployers {
         BalanceDelta delta = swap(poolKey, true, amountSpecified, ZERO_BYTES);
 
         // Verify swap executed (delta should be non-zero)
-        assertTrue(
-            delta.amount0() != 0 || delta.amount1() != 0,
-            "Swap should execute"
-        );
+        assertTrue(delta.amount0() != 0 || delta.amount1() != 0, "Swap should execute");
     }
 
     function test_impactFee_largeSwap_triggersExtraFee() public {
@@ -169,10 +110,7 @@ contract MEVTaxHookTest is Test, Deployers {
         modifyLiquidityRouter.modifyLiquidity(
             poolKey,
             ModifyLiquidityParams({
-                tickLower: -6000,
-                tickUpper: 6000,
-                liquidityDelta: 100e18,
-                salt: bytes32(uint256(1))
+                tickLower: -6000, tickUpper: 6000, liquidityDelta: 100e18, salt: bytes32(uint256(1))
             }),
             ZERO_BYTES
         );
@@ -183,8 +121,7 @@ contract MEVTaxHookTest is Test, Deployers {
         // Calculate swap size that would trigger impact fee (impact > 80 bps)
         // impact = (size * 10000) / liquidity > 80
         // size > 80 * liquidity / 10000
-        uint256 thresholdSize = (hook.IMPACT_THRESHOLD() * uint256(liquidity)) /
-            10000;
+        uint256 thresholdSize = (hook.IMPACT_THRESHOLD() * uint256(liquidity)) / 10000;
         int256 largeSwap = -int256(thresholdSize * 2); // Double the threshold
 
         // Execute large swap - it should work with higher fee
@@ -201,11 +138,8 @@ contract MEVTaxHookTest is Test, Deployers {
         swap(poolKey, true, firstSwap, ZERO_BYTES);
 
         // Check netFlow is positive (from zeroForOne swap paying token0)
-        (, , int256 netFlow, ) = hook.poolState(poolId);
-        assertTrue(
-            netFlow > 0,
-            "netFlow should be positive after zeroForOne swap"
-        );
+        (,, int256 netFlow,) = hook.poolState(poolId);
+        assertTrue(netFlow > 0, "netFlow should be positive after zeroForOne swap");
 
         // Second swap in opposite direction (!zeroForOne)
         // This tests the backrun detection logic
@@ -222,11 +156,8 @@ contract MEVTaxHookTest is Test, Deployers {
         swap(poolKey, true, swapAmount, ZERO_BYTES);
         swap(poolKey, true, swapAmount, ZERO_BYTES);
 
-        (, , int256 netFlow, ) = hook.poolState(poolId);
-        assertTrue(
-            netFlow > 0,
-            "netFlow should be positive from zeroForOne swaps"
-        );
+        (,, int256 netFlow,) = hook.poolState(poolId);
+        assertTrue(netFlow > 0, "netFlow should be positive from zeroForOne swaps");
     }
 
     function test_netFlowDecays_onNewBlock() public {
@@ -234,7 +165,7 @@ contract MEVTaxHookTest is Test, Deployers {
         int256 swapAmount = -10e18;
         swap(poolKey, true, swapAmount, ZERO_BYTES);
 
-        (, , int256 netFlowBefore, ) = hook.poolState(poolId);
+        (,, int256 netFlowBefore,) = hook.poolState(poolId);
 
         // Move to next block
         vm.roll(block.number + 1);
@@ -242,19 +173,16 @@ contract MEVTaxHookTest is Test, Deployers {
         // Execute another swap to trigger decay
         swap(poolKey, true, -1e18, ZERO_BYTES);
 
-        (, , int256 netFlowAfter, ) = hook.poolState(poolId);
+        (,, int256 netFlowAfter,) = hook.poolState(poolId);
 
         // The netFlow should have decayed (divided by 2) before adding new flow
         // So the absolute value change should reflect decay
-        assertTrue(
-            netFlowAfter != netFlowBefore,
-            "netFlow should change after block roll"
-        );
+        assertTrue(netFlowAfter != netFlowBefore, "netFlow should change after block roll");
     }
 
     // PATTERN #3: VOLATILITY FEE
     function test_volatilityFee_initiallyZero() public view {
-        (, uint256 emaVol, , ) = hook.poolState(poolId);
+        (, uint256 emaVol,,) = hook.poolState(poolId);
         assertEq(emaVol, 0, "Initial volatility should be 0");
     }
 
@@ -263,23 +191,20 @@ contract MEVTaxHookTest is Test, Deployers {
         int256 swapAmount = -50e18;
         swap(poolKey, true, swapAmount, ZERO_BYTES);
 
-        (, uint256 emaVol, , ) = hook.poolState(poolId);
-        assertTrue(
-            emaVol > 0,
-            "Volatility EMA should update after significant swap"
-        );
+        (, uint256 emaVol,,) = hook.poolState(poolId);
+        assertTrue(emaVol > 0, "Volatility EMA should update after significant swap");
     }
 
     function test_volatilityFee_emaDecaysOverTime() public {
         // Create significant price movement
         swap(poolKey, true, -100e18, ZERO_BYTES);
 
-        (, uint256 emaVolAfterFirst, , ) = hook.poolState(poolId);
+        (, uint256 emaVolAfterFirst,,) = hook.poolState(poolId);
 
         // Small swap in opposite direction
         swap(poolKey, false, -1e17, ZERO_BYTES);
 
-        (, uint256 emaVolAfterSecond, , ) = hook.poolState(poolId);
+        (, uint256 emaVolAfterSecond,,) = hook.poolState(poolId);
 
         // EMA should blend old and new volatility
         // With EMA_ALPHA = 20%, new vol gets 20% weight, old gets 80%
@@ -297,22 +222,15 @@ contract MEVTaxHookTest is Test, Deployers {
         swap(poolKey, false, -30e18, ZERO_BYTES);
 
         // Check state
-        (, uint256 emaVol, int256 netFlow, ) = hook.poolState(poolId);
+        (, uint256 emaVol, int256 netFlow,) = hook.poolState(poolId);
 
         // Verify state is set up for potential fee conditions
-        assertTrue(
-            emaVol > 0 || netFlow != 0,
-            "Pool state should reflect trading activity"
-        );
+        assertTrue(emaVol > 0 || netFlow != 0, "Pool state should reflect trading activity");
     }
 
     // HELPER FUNCTIONS
     function test_constants() public view {
-        assertEq(
-            hook.IMPACT_THRESHOLD(),
-            80,
-            "IMPACT_THRESHOLD should be 80 bps"
-        );
+        assertEq(hook.IMPACT_THRESHOLD(), 80, "IMPACT_THRESHOLD should be 80 bps");
         assertEq(hook.IMPACT_FEE(), 2000, "IMPACT_FEE should be 2000");
         assertEq(hook.FLOW_THRESHOLD(), 1e18, "FLOW_THRESHOLD should be 1e18");
         assertEq(hook.BACKRUN_FEE(), 1500, "BACKRUN_FEE should be 1500");
@@ -323,33 +241,27 @@ contract MEVTaxHookTest is Test, Deployers {
 
     // PRICE TRACKING
     function test_priceUpdatesAfterSwap() public {
-        (uint256 lastPriceBefore, , , ) = hook.poolState(poolId);
+        (uint256 lastPriceBefore,,,) = hook.poolState(poolId);
 
         // Execute swap that moves price
         swap(poolKey, true, -50e18, ZERO_BYTES);
 
-        (uint256 lastPriceAfter, , , ) = hook.poolState(poolId);
+        (uint256 lastPriceAfter,,,) = hook.poolState(poolId);
 
-        assertNotEq(
-            lastPriceBefore,
-            lastPriceAfter,
-            "Price should update after swap"
-        );
+        assertNotEq(lastPriceBefore, lastPriceAfter, "Price should update after swap");
     }
 
     // FUZZ TESTS
-    function testFuzz_swapDoesNotRevert(
-        bool zeroForOne,
-        uint256 amount
-    ) public {
+    function testFuzz_swapDoesNotRevert(bool zeroForOne, uint256 amount) public {
         // Bound amount to reasonable range
         amount = bound(amount, 1e15, 100e18);
         int256 amountSpecified = -int256(amount);
 
         // Should not revert for any reasonable swap
         try this.executeSwap(zeroForOne, amountSpecified) {
-            // Success is expected
-        } catch {
+        // Success is expected
+        }
+            catch {
             // Some swaps may fail due to slippage/price limits, which is acceptable
         }
     }
@@ -366,10 +278,7 @@ contract MEVTaxHookTest is Test, Deployers {
         uint256 emaVol = 5000; // 50% existing vol
         uint256 newEmaVol = ((emaVol * 80) + (priceDelta * 20)) / 100;
 
-        assertTrue(
-            newEmaVol <= 10000,
-            "EMA should stay within reasonable bounds"
-        );
+        assertTrue(newEmaVol <= 10000, "EMA should stay within reasonable bounds");
     }
 
     // EDGE CASES
@@ -396,17 +305,14 @@ contract MEVTaxHookTest is Test, Deployers {
     function test_consecutiveSwapsSameBlock() public {
         // Multiple swaps in same block should accumulate netFlow without decay
         swap(poolKey, true, -5e18, ZERO_BYTES);
-        (, , int256 netFlow1, uint256 lastBlock1) = hook.poolState(poolId);
+        (,, int256 netFlow1, uint256 lastBlock1) = hook.poolState(poolId);
 
         swap(poolKey, true, -5e18, ZERO_BYTES);
-        (, , int256 netFlow2, uint256 lastBlock2) = hook.poolState(poolId);
+        (,, int256 netFlow2, uint256 lastBlock2) = hook.poolState(poolId);
 
         assertEq(lastBlock1, lastBlock2, "Block should not change");
         // zeroForOne swaps create positive flow, so netFlow should increase
-        assertTrue(
-            netFlow2 > netFlow1,
-            "netFlow should accumulate (more positive for zeroForOne)"
-        );
+        assertTrue(netFlow2 > netFlow1, "netFlow should accumulate (more positive for zeroForOne)");
     }
 
     function test_swapRevertsWithInsufficientBalance() public {
@@ -417,15 +323,8 @@ contract MEVTaxHookTest is Test, Deployers {
         vm.expectRevert();
         swapRouter.swap(
             poolKey,
-            SwapParams({
-                zeroForOne: true,
-                amountSpecified: -1e18,
-                sqrtPriceLimitX96: MIN_PRICE_LIMIT
-            }),
-            PoolSwapTest.TestSettings({
-                takeClaims: false,
-                settleUsingBurn: false
-            }),
+            SwapParams({ zeroForOne: true, amountSpecified: -1e18, sqrtPriceLimitX96: MIN_PRICE_LIMIT }),
+            PoolSwapTest.TestSettings({ takeClaims: false, settleUsingBurn: false }),
             ZERO_BYTES
         );
 
@@ -503,11 +402,7 @@ contract MEVTaxHookHelpersTest is Test {
         if (x >= 0) {
             assertEq(result, uint256(x), "abs of positive should equal value");
         } else {
-            assertEq(
-                result,
-                uint256(-x),
-                "abs of negative should equal negated value"
-            );
+            assertEq(result, uint256(-x), "abs of negative should equal negated value");
         }
     }
 
